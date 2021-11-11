@@ -1,0 +1,7 @@
+{
+  "pegFile": "new/sail-lx.peg",
+  "inputFile": "new/test.lx",
+  "outputFile": "new/output.json",
+  "topLevelRule": "Program",
+  "recoveryRules": ["Program", "Statement"]
+}

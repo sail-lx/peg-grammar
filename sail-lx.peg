@@ -1,0 +1,239 @@
+# ====
+# Sail/Lx Primary Expression Grammar (PEG)
+# 
+# This PEG format is intended for use for the Pikaparser reference implementation metagrammar
+# and closely follows a standard PEG format.
+#
+# (C) Copyright 2020-2021.  MIT License.
+#
+
+SP	      <- [ \r\n\t]                  ;
+REQSP     <- [ \r\n\t]+                 ;
+ANY       <- [\u0000-\uFFFF]            ;
+ALPHANUM  <- [a-zA-Z0-9]                ;
+WORD      <- [a-zA-Z] [a-zA-Z0-9]*      ;
+X         <- [ \r\n\t]*                 ;
+
+# ====
+# Re-usable non-terminals
+
+NameRef
+    <- "$" WORD / WORD
+    ;
+
+BlockBody
+    <- L_CURLY X body:StatementList X R_CURLY
+    ;
+
+# ====
+# START/ROOT CLAUSE
+
+Program   <- X StatementList;
+
+# ====
+# PRIMARY STATEMENTS
+
+
+StatementList
+    <- (Statement X)*
+    ;
+ 
+Statement
+    <- assignStmt:AssignStmt
+    / ifStmt:IfStmt
+    / exprStmt:ExprStmt;
+
+# Parses: "let " <name> (: Type)? = (Expr)
+AssignStmt
+    <- (let:KW_LET REQSP)? nameRef:NameRef X (SYM_COLON X type:TypeExpr X)? SYM_ASSIGN X value:PrimaryExpr X SYM_SEMI
+    ;
+
+ExprStmt
+    <- PrimaryExpr X SYM_SEMI
+    ;
+
+
+# ==== Literals ====
+#
+
+#LiteralExpr
+#    <- IntegerLiteral
+#     / FloatLiteral
+#     / BoolLiteral
+#     / NullLiteral
+#    ;
+#
+#IntegerLiteral
+#    <- IntDecLiteral
+#     / IntHexLiteral 
+#     / IntBinLiteral
+#     ;
+#
+#IntDecLiteral
+#    <- [1-9] [0-9]* / "0"
+#    ;
+#
+#IntHexLiteral
+#    <- "0x" HEXNUM
+#    ;
+#
+## TODO: See that java supports a power with binary literals such as "0b00123p23" ?
+#IntBinLiteral
+#    <- "0b" [01]+
+#    ;
+#
+#FloatLiteral
+#    <- RegularFloatLiteral
+#     / ExponentFloatLiteral
+#     ;
+#
+## NOTE: Requires number after the decimal place.  Unlike most langs, something like "1." is not allowed.
+#RegularFloatLiteral
+#    <- "0.0" / ([1-9]+ [0-9]* "." [0-9]+)
+#    ;
+#
+#ExponentFloatLiteral
+#    <- (RegularFloatLiteral / IntDecLiteral) "e" [+-]? [0-9]+
+#    ;
+#
+#BoolLiteral
+#    <- KW_TRUE
+#     / KW_FALSE
+#     ;
+#
+#NullLiteral
+#    <- KW_NULL
+#    ;
+
+# ====
+# Type Expressions / Type Algebra 
+
+TypeExprList <-
+    ( TypeExpr ( X ',' X TypeExpr )* X )?
+    ;
+
+
+# TODO:
+# - Re-work precedence (Check other languages)
+# - Array[] Types
+# - Nullable Types (Type?) and Pointer Types (Type*)
+# - QUESTION: Should mutability be put here, or in the IfExpr?
+TypeExpr[60]     <- name:WORD;
+TypeExpr[55]     <- not:('~' X TypeExpr);
+TypeExpr[40]     <- union:(TypeExpr X '|' X TypeExpr);
+TypeExpr[50]     <- intersection:(TypeExpr X '&' X TypeExpr);
+TypeExpr[30]     <- L_PAREN X TypeExpr X R_PAREN;
+TypeExpr[20]     <- generic:(TypeExpr X '<' X TypeExprList X '>');
+TypeExpr[10]     <- fn:("fn" X '(' X TypeExprList X ')' X TypeExpr);
+
+# ====
+# PrimaryExpr encapsulates all expressions such as references to variable identifiers, 
+# literals (int, float, strings, bool, null), property access, function calls, and array
+# dimension access.
+
+PrimaryExpr[6]     <- '(' X PrimaryExpr X ')';
+PrimaryExpr[5]     <- sigilName:NameRef;
+PrimaryExpr[4]     <- intLiteral:[0-9]+;
+PrimaryExpr[3]     <- propAccess:PropertyAccessExpr;
+PrimaryExpr[2]     <- fnCallExpr:FnCallExpr;
+PrimaryExpr[1]     <- dimExpr:DimExpr;
+PrimaryExpr[0]     <- expr:Expr;
+
+PropertyAccessExpr <- prop:(PrimaryExpr X "->" X PrimaryExpr) X;
+DimExpr            <- array:(PrimaryExpr X '[' X dim:PrimaryExpr X ']');
+FnCallExpr         <- name:NameRef X '(' X param:ParameterList X ')' ;
+
+ParameterList      <- (Parameter X ( X ',' X Parameter X )* X)?;
+Parameter          <- PrimaryExpr;
+
+# ====
+# Operator Expressions:
+#
+
+Expr[95]     <- op:(KW_NEW / KW_CLONE) X PrimaryExpr;
+Expr[90,R]   <- arith:(PrimaryExpr X op:(SYM_POW) X PrimaryExpr);
+Expr[85]     <- unary:(op:(SYM_SUB / SYM_ADD / SYM_BW_NOT / SYM_BANG) X PrimaryExpr);
+Expr[80,L]   <- arith:(PrimaryExpr X op:(SYM_MUL / SYM_DIV / SYM_REM) X PrimaryExpr);
+Expr[75,L]   <- arith:(PrimaryExpr X op:(SYM_ADD / SYM_SUB) X PrimaryExpr);
+Expr[70,L]   <- shift:(PrimaryExpr X op:(SYM_SH_LEFT / SYM_SH_RIGHT) X PrimaryExpr);
+Expr[65]     <- cmp:(PrimaryExpr X op:(SYM_LT / SYM_LTE / SYM_GT / SYM_GTE) X PrimaryExpr);
+Expr[60]     <- cmp:(PrimaryExpr X op:(SYM_EQ / SYM_NEQ / SYM_IDENTICAL / SYM_NOTIDENT / SYM_SPACESHIP / KW_IS REQSP KW_NOT / KW_IS / KW_NOT REQSP KW_IN / KW_IN) X PrimaryExpr);
+Expr[55]     <- bwAnd:(PrimaryExpr X op:(SYM_BW_AND) X PrimaryExpr);
+Expr[50]     <- bwXor:(PrimaryExpr X op:(SYM_BW_XOR) X PrimaryExpr);
+Expr[45]     <- bwOr:(PrimaryExpr X op:(SYM_BW_OR) X PrimaryExpr);
+Expr[40]     <- logicAnd:(PrimaryExpr X op:(SYM_LOGIC_AND) X PrimaryExpr);
+Expr[35]     <- logicOr:(PrimaryExpr X op:(SYM_LOGIC_OR) X PrimaryExpr);
+Expr[30]     <- nullCoal:(PrimaryExpr X op:(SYM_NULL_COAL) X PrimaryExpr);
+Expr[25]     <- condPrimaryExpr:(PrimaryExpr X SYM_QUESTION X PrimaryExpr X SYM_COLON);
+Expr[20]     <- yieldFrom:(KW_YIELD X KW_FROM X PrimaryExpr);
+Expr[15]     <- delete:(KW_DELETE X PrimaryExpr);
+Expr[10]     <- yield:(KW_YIELD X PrimaryExpr);
+
+# TODO: Disallow mixed paren/space syntax?
+IfStmt
+    <- if:(KW_IF (REQSP cond:Expr / X L_PAREN X cond:Expr X R_PAREN) X BlockBody X)
+       elseif:(KW_ELSEIF (REQSP cond:Expr / X L_PAREN X cond:Expr X R_PAREN) X BlockBody X)*
+       else:(KW_ELSE X BlockBody)?
+    ;
+
+# ==== 
+# Terminal Keywords
+# 
+
+KW_IF       <- "if"       !ALPHANUM;
+KW_ELSEIF   <- "elseif"   !ALPHANUM;
+KW_ELSE     <- "else"     !ALPHANUM;
+KW_NOT      <- "not"      !ALPHANUM;
+KW_NEW      <- "new"      !ALPHANUM;
+KW_CLONE    <- "clone"    !ALPHANUM;
+KW_YIELD    <- "yield"    !ALPHANUM;
+KW_FROM     <- "from"     !ALPHANUM;
+KW_IS       <- "is"       !ALPHANUM;
+KW_IN       <- "in"       !ALPHANUM;
+KW_DELETE   <- "delete"   !ALPHANUM;
+KW_PRINT    <- "print"    !ALPHANUM;
+KW_PRINTLN  <- "println"  !ALPHANUM;
+KW_ECHO     <- "echo"     !ALPHANUM;
+KW_LET      <- "let"      !ALPHANUM;
+
+# ====
+# Terminal Symbols
+# 
+
+L_PAREN             <- "("  ![(]     ;
+R_PAREN             <- ")"  ![)]     ;
+L_CURLY             <- "{"  ![{]     ;
+R_CURLY             <- "}"  ![}]     ;
+L_BRACKET           <- "["           ;
+R_BRACKET           <- "]"           ;
+
+SYM_ASSIGN      <- "="      ![=]     ;
+SYM_SEMI        <- ";"               ;
+SYM_BANG        <- "!"      ![!]     ;
+SYM_POW         <- "**"     ![=]     ;
+SYM_DIV         <- "/"      ![/=]    ;
+SYM_REM         <- "%"      ![%]     ;
+SYM_MUL         <- "*"      ![*=]    ;
+SYM_SUB         <- "-"      ![-=>]   ;
+SYM_ADD         <- "+"      ![=+]    ;
+SYM_LT          <- "<"      ![<=]    ;
+SYM_LTE         <- "<="     ![>]     ;
+SYM_GT          <- ">"      ![>=]    ;
+SYM_GTE         <- ">="              ;
+SYM_SPACESHIP   <- "<=>"    ![>]     ;
+SYM_EQ          <- "=="     ![=]     ;
+SYM_NEQ         <- "!="     ![=]     ;
+SYM_IDENTICAL   <- "==="    ![=]     ;
+SYM_NOTIDENT    <- "!=="    ![=]     ;
+SYM_SH_LEFT     <- "<<"     ![<]     ;
+SYM_SH_RIGHT    <- ">>"     ![>]     ;
+SYM_SH_RIGHT_UN <- ">>>"             ;
+SYM_BW_NOT      <- "~"      ![=]     ;
+SYM_BW_AND      <- "&"      ![&]     ;
+SYM_BW_OR       <- "|"      ![|]     ;
+SYM_BW_XOR      <- "^"               ;
+SYM_LOGIC_AND   <- "&&"              ;
+SYM_LOGIC_OR    <- "||"              ;
+SYM_NULL_COAL   <- "??"              ;
+SYM_QUESTION    <- "?" ![?]          ;
+SYM_COLON       <- ":" ![:]          ;

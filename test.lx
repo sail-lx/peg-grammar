@@ -1,0 +1,146 @@
+discriminant=b*b-4*a*c;
+x = 1 + 5 * 3;
+y=2**3**4;
+z=-5;
+yield x + d;
+delete z;
+3 in x;
+3 !== 3;
+$z = 5;
+let $a = 6;
+
+if($a == 1) { 
+    $a = 2;
+}
+
+$j = 0;
+
+if($b == 1) { 
+    $b = 2;
+} elseif($a == 3) { 
+    $b = 4;
+}
+
+$k = 0;
+
+if($c == 1) { 
+    $c = 2;
+} else { 
+    $c = 4;
+}
+
+$l = 0;
+
+if($d == 1) { 
+    $d = 2;
+} elseif($d == 3) { 
+    $d = 4;
+} else { 
+    $d = 5;
+}
+
+$m = 0;
+
+if $e == 1 { 
+    $e = 2;
+}
+
+$n = 0;
+
+if $f == 1 { 
+    $f = 2;
+} elseif $f == 3 { 
+    $f = 4;
+}
+
+$o = 0;
+
+if $g == 1 { 
+    $g = 2;
+} else { 
+    $g = 4;
+}
+
+$p = 0;
+
+if $h == 1 { 
+    $h = 2;
+} elseif $h == 3 { 
+    $h = 4;
+} else { 
+    $h = 5;
+}
+
+$q = 0;
+
+if($i == 1) { 
+    $i = 2;
+} elseif $i == 3 { 
+    $i = 4;
+}
+
+$r = 0;
+
+if $j == 1 { 
+    $j = 2;
+} elseif($j == 3) { 
+    $j = 4;
+}
+
+$s = 0;
+
+if($k == 1) { 
+    $k = 2;
+} elseif $k == 3 { 
+    $k = 4;
+} else { 
+    $k = 5;
+}
+
+$t = 0;
+
+if $m == 1 { 
+    $m = 2;
+} elseif($m == 3) { 
+    $m = 4;
+} else { 
+    $m = 5;
+}
+
+let $x: int = 5;
+
+let $y: int | null = 5;
+
+let $z: array<string> = 0;
+let $z: fn(P1,P2) R = 0;
+let $z: int|float = 0;
+let $z: ~any = 0;
+
+
+$q = $abc[3] + $xyz * foo($a, $b[0]);
+$w = 1 + 2 - 3 / 4 * 5;
+$e = 10 << 1;
+$r = 9 % 3;
+$t = $abc[$q[1 + rand()]];
+$y = 1 + 2 * 3;
+$u = 1 * 2 - 3;
+$i = $a[1 + 2 * 3];
+$o = $a[1 * 2 * 3 + $a * 5];
+$p = $a[$b[$c]];
+$a = $a[(5 + 5) * 6 * $a];
+$s = $a[5];
+$d = $a[ 1 + $b[6] ];
+$f = hello(1, 2);
+$g = $a [ rand(1, 2) ];
+$h = $a[rand($a[0], $b[1])];
+$j = $a[rand(1, 2) + 1];
+$k = 1 + 2 * 3;
+$l = 1 * 2 - 3;
+$z = foo(0);
+
+$x = $a[1 + 2][2][3 + $q[$w[0][0]] + ha()][foo()];
+$c = $a[foo() + bar()];
+
+let $v = 0;
+let $b = 10;
+let $n: int = 2**3**4;
