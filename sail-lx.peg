@@ -12,6 +12,7 @@ REQSP     <- [ \r\n\t]+                 ;
 ANY       <- [\u0000-\uFFFF]            ;
 ALPHANUM  <- [a-zA-Z0-9]                ;
 WORD      <- [a-zA-Z] [a-zA-Z0-9]*      ;
+HEXNUM    <- [0-9A-F] / [0-9a-f]        ;
 X         <- [ \r\n\t]*                 ;
 
 # ====
@@ -56,62 +57,57 @@ ExprStmt
 # ==== Literals ====
 #
 
-#LiteralExpr
-#    <- IntegerLiteral
-#     / FloatLiteral
-#     / BoolLiteral
-#     / NullLiteral
-#    ;
-#
-#IntegerLiteral
-#    <- IntDecLiteral
-#     / IntHexLiteral 
-#     / IntBinLiteral
-#     ;
-#
-#IntDecLiteral
-#    <- [1-9] [0-9]* / "0"
-#    ;
-#
-#IntHexLiteral
-#    <- "0x" HEXNUM
-#    ;
-#
-## TODO: See that java supports a power with binary literals such as "0b00123p23" ?
-#IntBinLiteral
-#    <- "0b" [01]+
-#    ;
-#
-#FloatLiteral
-#    <- RegularFloatLiteral
-#     / ExponentFloatLiteral
-#     ;
-#
-## NOTE: Requires number after the decimal place.  Unlike most langs, something like "1." is not allowed.
-#RegularFloatLiteral
-#    <- "0.0" / ([1-9]+ [0-9]* "." [0-9]+)
-#    ;
-#
-#ExponentFloatLiteral
-#    <- (RegularFloatLiteral / IntDecLiteral) "e" [+-]? [0-9]+
-#    ;
-#
-#BoolLiteral
-#    <- KW_TRUE
-#     / KW_FALSE
-#     ;
-#
-#NullLiteral
-#    <- KW_NULL
-#    ;
+LiteralExpr
+    <- IntegerLiteral
+     / FloatLiteral
+     / BoolLiteral
+     / NullLiteral
+    ;
+
+IntegerLiteral
+    <- IntDecLiteral
+     / IntHexLiteral 
+     / IntBinLiteral
+     ;
+
+IntDecLiteral
+    <- [1-9] [0-9]* / "0"
+    ;
+
+IntHexLiteral
+    <- "0x" HEXNUM
+    ;
+
+# TODO: See that java supports a power with binary literals such as "0b00123p23" ?
+IntBinLiteral
+    <- "0b" [01]+
+    ;
+
+FloatLiteral
+    <- RegularFloatLiteral
+     / ExponentFloatLiteral
+     ;
+
+# NOTE: Requires number after the decimal place.  Unlike most langs, something like "1." is not allowed.
+RegularFloatLiteral
+    <- "0.0" / ([1-9]+ [0-9]* "." [0-9]+)
+    ;
+
+ExponentFloatLiteral
+    <- (RegularFloatLiteral / IntDecLiteral) "e" [+-]? [0-9]+
+    ;
+
+BoolLiteral
+    <- KW_TRUE
+     / KW_FALSE
+     ;
+
+NullLiteral
+    <- KW_NULL
+    ;
 
 # ====
 # Type Expressions / Type Algebra 
-
-TypeExprList <-
-    ( TypeExpr ( X ',' X TypeExpr )* X )?
-    ;
-
 
 # TODO:
 # - Re-work precedence (Check other languages)
@@ -119,12 +115,17 @@ TypeExprList <-
 # - Nullable Types (Type?) and Pointer Types (Type*)
 # - QUESTION: Should mutability be put here, or in the IfExpr?
 TypeExpr[60]     <- name:WORD;
-TypeExpr[55]     <- not:('~' X TypeExpr);
-TypeExpr[40]     <- union:(TypeExpr X '|' X TypeExpr);
-TypeExpr[50]     <- intersection:(TypeExpr X '&' X TypeExpr);
-TypeExpr[30]     <- L_PAREN X TypeExpr X R_PAREN;
-TypeExpr[20]     <- generic:(TypeExpr X '<' X TypeExprList X '>');
-TypeExpr[10]     <- fn:("fn" X '(' X TypeExprList X ')' X TypeExpr);
+TypeExpr[57]     <- L_PAREN X TypeExpr X R_PAREN;
+TypeExpr[56]     <- nullifyTy:(TypeExpr X SYM_QUESTION);
+TypeExpr[55]     <- notTy:('~' X TypeExpr);
+TypeExpr[40]     <- unionTy:(TypeExpr X '|' X TypeExpr);
+TypeExpr[50]     <- intersectionTy:(TypeExpr X '&' X TypeExpr);
+TypeExpr[20]     <- paramTy:(TypeExpr X '<' X TypeExprList X '>');
+TypeExpr[10]     <- fn:("fn" X '(' X param:TypeExprList X ')' X return:TypeExpr);
+
+TypeExprList
+    <- ( TypeExpr ( X ',' X TypeExpr )* X )?
+    ;
 
 # ====
 # PrimaryExpr encapsulates all expressions such as references to variable identifiers, 
@@ -195,6 +196,9 @@ KW_PRINT    <- "print"    !ALPHANUM;
 KW_PRINTLN  <- "println"  !ALPHANUM;
 KW_ECHO     <- "echo"     !ALPHANUM;
 KW_LET      <- "let"      !ALPHANUM;
+KW_TRUE     <- "true"     !ALPHANUM;
+KW_FALSE    <- "false"    !ALPHANUM;
+KW_NULL     <- "null"     !ALPHANUM;
 
 # ====
 # Terminal Symbols

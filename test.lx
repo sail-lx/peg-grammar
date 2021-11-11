@@ -144,3 +144,5 @@ $c = $a[foo() + bar()];
 let $v = 0;
 let $b = 10;
 let $n: int = 2**3**4;
+
+let $x: int? = null;
