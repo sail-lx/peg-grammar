@@ -155,15 +155,15 @@ TypeExprList
 # literals (int, float, strings, bool, null), property access, function calls, and array
 # dimension access.
 
-PrimaryExpr[70]     <- '(' X PrimaryExpr X ')';
-PrimaryExpr[60]     <- ref:NameRef;
-PrimaryExpr[50]     <- literal:LiteralExpr;
-PrimaryExpr[40]     <- propAccess:PropertyAccessExpr;
-PrimaryExpr[30]     <- fnCallExpr:FnCallExpr;
-PrimaryExpr[20]     <- dimExpr:DimExpr;
-PrimaryExpr[10]     <- expr:Expr;
-PrimaryExpr[5]      <- useBlock:UseBlock;
-PrimaryExpr[1]      <- lambdaFn:LambdaFn;
+PrimaryExpr[90]     <- '(' X PrimaryExpr X ')';
+PrimaryExpr[80]     <- ref:NameRef;
+PrimaryExpr[70]     <- literal:LiteralExpr;
+PrimaryExpr[60]     <- propAccess:PropertyAccessExpr;
+PrimaryExpr[50]     <- fnCallExpr:FnCallExpr;
+PrimaryExpr[40]     <- dimExpr:DimExpr;
+PrimaryExpr[30]     <- expr:Expr;
+PrimaryExpr[20]     <- useBlock:UseBlock;
+PrimaryExpr[10]     <- lambdaFn:LambdaFn;
 
 PropertyAccessExpr <- prop:(PrimaryExpr X "->" X PrimaryExpr) X;
 DimExpr            <- array:(PrimaryExpr X '[' X dim:PrimaryExpr X ']');
