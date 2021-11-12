@@ -7,9 +7,14 @@
 # (C) Copyright 2020-2021.  MIT License.
 #
 
+# ====
+# Core re-usable rules
+#
+
 SP	      <- [ \r\n\t]                  ;
 REQSP     <- [ \r\n\t]+                 ;
 ANY       <- [\u0000-\uFFFF]            ;
+ALPHA     <- [a-zA-Z]                   ;
 ALPHANUM  <- [a-zA-Z0-9]                ;
 WORD      <- [a-zA-Z] [a-zA-Z0-9]*      ;
 HEXNUM    <- [0-9A-F] / [0-9a-f]        ;
@@ -40,13 +45,23 @@ StatementList
     ;
  
 Statement
-    <- assignStmt:AssignStmt
+    <- fnDecl:FnDecl 
+    / assignStmt:VarDeclStmt
     / ifStmt:IfStmt
-    / exprStmt:ExprStmt;
+    / whileStmt:WhileStmt
+    / doWhileStmt:DoWhileStmt
+    / exprStmt:ExprStmt
+    / useBlock:UseBlock
+    / returnStmt:ReturnStmt
+    ;
+
+VarDeclType
+    <- SYM_COLON X (mut:"mut")? X type:TypeExpr
+    ;
 
 # Parses: "let " <name> (: Type)? = (Expr)
-AssignStmt
-    <- (let:KW_LET REQSP)? nameRef:NameRef X (SYM_COLON X type:TypeExpr X)? SYM_ASSIGN X value:PrimaryExpr X SYM_SEMI
+VarDeclStmt
+    <- (let:KW_LET REQSP)? nameRef:NameRef X (VarDeclType X)? SYM_ASSIGN X value:PrimaryExpr X SYM_SEMI
     ;
 
 ExprStmt
@@ -58,10 +73,11 @@ ExprStmt
 #
 
 LiteralExpr
-    <- IntegerLiteral
-     / FloatLiteral
+    <- FloatLiteral
+     / IntegerLiteral
      / BoolLiteral
      / NullLiteral
+     / SetLiteral
     ;
 
 IntegerLiteral
@@ -84,8 +100,8 @@ IntBinLiteral
     ;
 
 FloatLiteral
-    <- RegularFloatLiteral
-     / ExponentFloatLiteral
+    <- floatExp_literal:ExponentFloatLiteral
+     / float_literal:RegularFloatLiteral
      ;
 
 # NOTE: Requires number after the decimal place.  Unlike most langs, something like "1." is not allowed.
@@ -106,25 +122,32 @@ NullLiteral
     <- KW_NULL
     ;
 
+SetLiteral
+    <- L_BRACKET X (PrimaryExpr ( X ',' X PrimaryExpr )* X)? R_BRACKET
+    ;
+
 # ====
 # Type Expressions / Type Algebra 
 
 # TODO:
-# - Re-work precedence (Check other languages)
-# - Array[] Types
-# - Nullable Types (Type?) and Pointer Types (Type*)
+# - NullifyTy is last in precedence due to needing to apply to all other types
+#   which won't properly parse otherwise.  Possibly, narrow these down significantly
+#   especially if having this lowest precedence causes other issues.  In other words, 
+#   remove the recursion on TypeExpr in favor of more precise types ... like currently,
+#   Map<int int><int, int> would work due to recursion.
 # - QUESTION: Should mutability be put here, or in the IfExpr?
-TypeExpr[60]     <- name:WORD;
-TypeExpr[57]     <- L_PAREN X TypeExpr X R_PAREN;
-TypeExpr[56]     <- nullifyTy:(TypeExpr X SYM_QUESTION);
-TypeExpr[55]     <- notTy:('~' X TypeExpr);
-TypeExpr[40]     <- unionTy:(TypeExpr X '|' X TypeExpr);
-TypeExpr[50]     <- intersectionTy:(TypeExpr X '&' X TypeExpr);
-TypeExpr[20]     <- paramTy:(TypeExpr X '<' X TypeExprList X '>');
-TypeExpr[10]     <- fn:("fn" X '(' X param:TypeExprList X ')' X return:TypeExpr);
+TypeExpr[90]     <- group:(L_PAREN X TypeExpr X R_PAREN) X;
+TypeExpr[80]     <- arrayTy:(TypeExpr arrayDim:(L_BRACKET R_BRACKET X)+) X;
+TypeExpr[70]     <- type:WORD;
+TypeExpr[60]     <- notTy:('~' X TypeExpr) X;
+TypeExpr[50]     <- unionTy:(TypeExpr X '|' X TypeExpr) X;
+TypeExpr[40]     <- intersectionTy:(TypeExpr X '&' X TypeExpr) X;
+TypeExpr[30]     <- paramTy:(TypeExpr X '<' X TypeExprList X '>') X;
+TypeExpr[20]     <- fn:("fn" X '(' X param:TypeExprList X ')' X return:TypeExpr) X;
+TypeExpr[10]     <- nullifyTy:(TypeExpr X SYM_QUESTION) X;
 
 TypeExprList
-    <- ( TypeExpr ( X ',' X TypeExpr )* X )?
+    <- ( TypeExpr ( X ',' X TypeExpr X )* X )?
     ;
 
 # ====
@@ -132,21 +155,33 @@ TypeExprList
 # literals (int, float, strings, bool, null), property access, function calls, and array
 # dimension access.
 
-PrimaryExpr[6]     <- '(' X PrimaryExpr X ')';
-PrimaryExpr[5]     <- sigilName:NameRef;
-PrimaryExpr[4]     <- intLiteral:[0-9]+;
-PrimaryExpr[3]     <- propAccess:PropertyAccessExpr;
-PrimaryExpr[2]     <- fnCallExpr:FnCallExpr;
-PrimaryExpr[1]     <- dimExpr:DimExpr;
-PrimaryExpr[0]     <- expr:Expr;
+PrimaryExpr[70]     <- '(' X PrimaryExpr X ')';
+PrimaryExpr[60]     <- ref:NameRef;
+PrimaryExpr[50]     <- literal:LiteralExpr;
+PrimaryExpr[40]     <- propAccess:PropertyAccessExpr;
+PrimaryExpr[30]     <- fnCallExpr:FnCallExpr;
+PrimaryExpr[20]     <- dimExpr:DimExpr;
+PrimaryExpr[10]     <- expr:Expr;
+PrimaryExpr[5]      <- useBlock:UseBlock;
+PrimaryExpr[1]      <- lambdaFn:LambdaFn;
 
 PropertyAccessExpr <- prop:(PrimaryExpr X "->" X PrimaryExpr) X;
 DimExpr            <- array:(PrimaryExpr X '[' X dim:PrimaryExpr X ']');
-FnCallExpr         <- name:NameRef X '(' X param:ParameterList X ')' ;
+FnCallExpr         <- name:NameRef X '(' X args:ArgumentList X ')' ;
 
-ParameterList      <- (Parameter X ( X ',' X Parameter X )* X)?;
+ArgumentList       <- (Parameter X ( X ',' X Parameter X )* X)?;
 Parameter          <- PrimaryExpr;
 
+UseBlock
+    <- KW_USE REQSP NameRef (X ',' X NameRef)* X BlockBody
+    ;
+
+# TODO: Not callable as an immediate value such as (fn(){return 0;})();
+LambdaFn
+    <- "fn" X L_PAREN X parameters:ParameterList X R_PAREN X
+            FnDeclReturnTy? X BlockBody
+    ;
+    
 # ====
 # Operator Expressions:
 #
@@ -170,12 +205,61 @@ Expr[20]     <- yieldFrom:(KW_YIELD X KW_FROM X PrimaryExpr);
 Expr[15]     <- delete:(KW_DELETE X PrimaryExpr);
 Expr[10]     <- yield:(KW_YIELD X PrimaryExpr);
 
+
+# ====
+# Block Statements (If/Elseif/Else, While, Do...While, For, Try/Catch, ...)
+#
+
+BlockConditional
+    <- (REQSP cond:PrimaryExpr / X L_PAREN X cond:PrimaryExpr X R_PAREN)
+    ;
+
 # TODO: Disallow mixed paren/space syntax?
 IfStmt
-    <- if:(KW_IF (REQSP cond:Expr / X L_PAREN X cond:Expr X R_PAREN) X BlockBody X)
-       elseif:(KW_ELSEIF (REQSP cond:Expr / X L_PAREN X cond:Expr X R_PAREN) X BlockBody X)*
+    <- if:(KW_IF BlockConditional X BlockBody X)
+       elseif:(KW_ELSEIF BlockConditional X BlockBody X)*
        else:(KW_ELSE X BlockBody)?
     ;
+
+WhileStmt
+    <- KW_WHILE BlockConditional X BlockBody
+    ;
+
+DoWhileStmt
+    <- KW_DO X BlockBody X KW_WHILE BlockConditional X SYM_SEMI
+    ;
+
+ReturnStmt
+    <- "return" X (expr:PrimaryExpr X)? SYM_SEMI
+    ;
+
+# ====
+# Top Level Function Declarations
+#
+
+Visibility      <- ( ( "pub" / "public" ) / "protected" / "private" )
+                ;
+
+InstanceType    <- ( "instance" / "static" )
+                ;
+
+FnDeclModifiers <- visibility:Visibility? X instanceType:InstanceType?
+                ;
+
+FnTypedVar      <- parameter:(name:NameRef X ( SYM_COLON X type:TypeExpr )?) X
+                ;
+
+ParameterList   <- parameter:(FnTypedVar X (SYM_COMMA X FnTypedVar )*)?
+                ;
+
+FnDeclReturnTy  <- (SYM_COLON X returnType:TypeExpr)
+                ;
+
+FnDecl          <- FnDeclModifiers X KW_FN X name:WORD X
+                    L_PAREN X parameters:ParameterList X R_PAREN X
+                    FnDeclReturnTy? X
+                    BlockBody
+                ;
 
 # ==== 
 # Terminal Keywords
@@ -195,10 +279,20 @@ KW_DELETE   <- "delete"   !ALPHANUM;
 KW_PRINT    <- "print"    !ALPHANUM;
 KW_PRINTLN  <- "println"  !ALPHANUM;
 KW_ECHO     <- "echo"     !ALPHANUM;
-KW_LET      <- "let"      !ALPHANUM;
 KW_TRUE     <- "true"     !ALPHANUM;
 KW_FALSE    <- "false"    !ALPHANUM;
 KW_NULL     <- "null"     !ALPHANUM;
+
+KW_FN               <- "fn"         !ALPHANUM;
+KW_USE              <- "use"        !ALPHANUM;
+KW_LET              <- "let"        !ALPHANUM;
+
+KW_WHILE            <- "while"      !ALPHANUM;
+KW_DO               <- "do"         !ALPHANUM;
+KW_FOR              <- "for"        !ALPHANUM;
+KW_FOREACH          <- "foreach"    !ALPHANUM;
+KW_AS               <- "as"         !ALPHANUM;
+KW_RETURN           <- "return"     !ALPHANUM;
 
 # ====
 # Terminal Symbols
@@ -220,6 +314,7 @@ SYM_REM         <- "%"      ![%]     ;
 SYM_MUL         <- "*"      ![*=]    ;
 SYM_SUB         <- "-"      ![-=>]   ;
 SYM_ADD         <- "+"      ![=+]    ;
+# LESS, LESSEQ, GREATER, GREATEREQ
 SYM_LT          <- "<"      ![<=]    ;
 SYM_LTE         <- "<="     ![>]     ;
 SYM_GT          <- ">"      ![>=]    ;
@@ -229,6 +324,8 @@ SYM_EQ          <- "=="     ![=]     ;
 SYM_NEQ         <- "!="     ![=]     ;
 SYM_IDENTICAL   <- "==="    ![=]     ;
 SYM_NOTIDENT    <- "!=="    ![=]     ;
+# TODO: CHANGE NAME?
+# SYM_SHIFTLEFT / SYM_SHIFTRIGHT
 SYM_SH_LEFT     <- "<<"     ![<]     ;
 SYM_SH_RIGHT    <- ">>"     ![>]     ;
 SYM_SH_RIGHT_UN <- ">>>"             ;
@@ -241,3 +338,28 @@ SYM_LOGIC_OR    <- "||"              ;
 SYM_NULL_COAL   <- "??"              ;
 SYM_QUESTION    <- "?" ![?]          ;
 SYM_COLON       <- ":" ![:]          ;
+
+
+# UNUSED
+SYM_INC             <- "++"          ;
+SYM_DEC             <- "--"          ;
+SYM_PIPE            <- "|" ![|]      ;
+SYM_FSLASH          <- "/"           ;
+SYM_BSLASH          <- "\\"          ;
+SYM_QUOTE           <- "'"           ;
+SYM_DBLQUOTE        <- "\""          ;
+SYM_PERIOD          <- "." [!.]      ;
+SYM_ELLIPSES        <- "..."         ;
+SYM_COMMA           <- ","           ;
+SYM_AT              <- "@"           ;
+SYM_HASH            <- "#"           ;
+SYM_DOLLAR          <- "$"           ;
+SYM_PERCENT         <- "%"           ;
+SYM_CARET           <- "^"           ;
+SYM_AMP             <- "&" ![&]      ;
+SYM_UNDERSC         <- "_"           ;
+SYM_MINUS           <- "-" ![-]      ;
+SYM_ADD_EQ          <- "+="          ;
+SYM_SUB_EQ          <- "-="          ;
+SYM_MUL_EQ          <- "*="          ;
+SYM_DIV_EQ          <- "/="          ;

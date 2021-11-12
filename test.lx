@@ -112,7 +112,8 @@ let $x: int = 5;
 let $y: int | null = 5;
 
 let $z: array<string> = 0;
-let $z: fn(P1,P2) R = 0;
+let $z: fn(int,int) void = 0;
+let $z: fn(argType1,argType2) returnType = 0;
 let $z: int|float = 0;
 let $z: ~any = 0;
 
@@ -146,3 +147,80 @@ let $b = 10;
 let $n: int = 2**3**4;
 
 let $x: int? = null;
+$x: (int | float)? = null;
+$x: i64 = 128;
+let $y: map<string, string> = null; 
+let $z: map<string, int> = [];
+
+let $x: f64 = 123.45;
+let $y: f64 = 123e4;
+let $y: f64 = 123e+4;
+let $y: f64 = 123e-4;
+let $y: f64 = 123.0e4;
+let $y: f64 = 123.0e+4;
+let $y: f64 = 123.0e-4;
+let $y: f64 = 123.1e4;
+let $y: f64 = 123.2e+4;
+let $y: f64 = 123.3e-4;
+let $n: int? = null;
+let $y: bool = true;
+let $z: bool = false;
+
+let $z: map<string, int> = [1, 2, foo(), $a[6]];
+
+let $z: map<string, int>? = [];
+
+let $z: map<string, string><string, string> = [];
+
+fn foo() {
+    let $x = 0;
+    foo();
+}
+
+fn foo(): void
+{
+    bar();
+}
+
+while($x > 5) { 
+    $y = foo($x);
+}
+
+while $x > 5 { 
+    $y = foo($x);
+}
+
+do { 
+    $y = foo();
+} while $y > 0;
+
+use $x, $y { 
+    foo($x, $y);
+}
+
+fn add($x: num, $y: num): num
+{
+    return $x + $y;
+}
+
+pub static fn sub($x: num, $y: num): num
+{
+    return $x - $y;
+}
+
+let $useBlock = (use $x, $y { 
+    return $x % $y;
+});
+
+let $anotherUse = use $a { 
+    return foo($a);
+};
+
+let $fn = fn($x, $y) { return 0; };
+
+(fn($x, $y) { 
+    doStuff();
+})();
+
+
+$z = 0;
